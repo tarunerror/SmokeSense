@@ -1,4 +1,27 @@
-// SmokeSense Typography
+// SmokeSense Typography with Responsive Scaling
+import { Dimensions, PixelRatio } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Base width (iPhone 14 Pro)
+const BASE_WIDTH = 393;
+const scale = SCREEN_WIDTH / BASE_WIDTH;
+
+// Responsive font scaling
+const fontScale = (size: number): number => {
+    const newSize = size * scale;
+    return Math.round(PixelRatio.roundToNearestPixel(newSize));
+};
+
+// Moderate scale (less aggressive)
+const moderateScale = (size: number, factor: number = 0.5): number => {
+    return Math.round(size + (size * scale - size) * factor);
+};
+
+// Device type detection
+const isSmallDevice = SCREEN_WIDTH < 375;
+const isLargeDevice = SCREEN_WIDTH >= 414;
+
 export const typography = {
     fonts: {
         regular: 'System',
@@ -7,14 +30,14 @@ export const typography = {
     },
 
     sizes: {
-        xs: 12,
-        sm: 14,
-        md: 16,
-        lg: 18,
-        xl: 20,
-        xxl: 24,
-        xxxl: 32,
-        giant: 48,
+        xs: moderateScale(isSmallDevice ? 10 : 12),
+        sm: moderateScale(isSmallDevice ? 12 : 14),
+        md: moderateScale(isSmallDevice ? 14 : 16),
+        lg: moderateScale(isSmallDevice ? 16 : 18),
+        xl: moderateScale(isSmallDevice ? 18 : 20),
+        xxl: moderateScale(isSmallDevice ? 20 : 24),
+        xxxl: moderateScale(isSmallDevice ? 28 : 32),
+        giant: moderateScale(isSmallDevice ? 40 : 48),
     },
 
     lineHeights: {
@@ -32,21 +55,21 @@ export const typography = {
 };
 
 export const spacing = {
-    xs: 4,
-    sm: 8,
-    md: 16,
-    lg: 24,
-    xl: 32,
-    xxl: 48,
-    xxxl: 64,
+    xs: moderateScale(4),
+    sm: moderateScale(8),
+    md: moderateScale(isSmallDevice ? 12 : 16),
+    lg: moderateScale(isSmallDevice ? 18 : 24),
+    xl: moderateScale(isSmallDevice ? 24 : 32),
+    xxl: moderateScale(isSmallDevice ? 36 : 48),
+    xxxl: moderateScale(isSmallDevice ? 48 : 64),
 };
 
 export const borderRadius = {
-    sm: 4,
-    md: 8,
-    lg: 12,
-    xl: 16,
-    xxl: 24,
+    sm: moderateScale(4),
+    md: moderateScale(8),
+    lg: moderateScale(12),
+    xl: moderateScale(16),
+    xxl: moderateScale(24),
     full: 9999,
 };
 
@@ -72,4 +95,13 @@ export const shadows = {
         shadowRadius: 8,
         elevation: 8,
     },
+};
+
+// Export helpers for custom scaling
+export const responsiveHelpers = {
+    fontScale,
+    moderateScale,
+    isSmallDevice,
+    isLargeDevice,
+    screenWidth: SCREEN_WIDTH,
 };

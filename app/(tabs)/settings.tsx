@@ -1,4 +1,4 @@
-// Settings Screen
+// Settings Screen - Redesigned UI
 import React, { useState } from 'react';
 import {
     View,
@@ -9,6 +9,8 @@ import {
     TouchableOpacity,
     TextInput,
     Alert,
+    Image,
+    Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,12 +19,23 @@ import { defaultUserSettings } from '../../src/types';
 import { savePin, removePin } from '../../src/utils/security';
 import { colors, spacing, typography, borderRadius } from '../../src/theme';
 
+const CURRENCIES = [
+    { symbol: '$', code: 'USD' },
+    { symbol: '€', code: 'EUR' },
+    { symbol: '£', code: 'GBP' },
+    { symbol: '₹', code: 'INR' },
+    { symbol: '¥', code: 'JPY' },
+    { symbol: '₱', code: 'PHP' },
+];
+
 export default function SettingsScreen() {
     const { settings, updateSettings } = useAppStore();
     const [showPinSetup, setShowPinSetup] = useState(false);
     const [newPin, setNewPin] = useState('');
     const [editingPrice, setEditingPrice] = useState(false);
+    const [editingCigsPerPack, setEditingCigsPerPack] = useState(false);
     const [priceInput, setPriceInput] = useState(String(settings.financial.pricePerPack));
+    const [cigsInput, setCigsInput] = useState(String(settings.financial.cigarettesPerPack));
 
     // Toggle handlers
     const handleDelayToggle = () => {
@@ -34,6 +47,12 @@ export default function SettingsScreen() {
     const handleBreathingToggle = () => {
         updateSettings({
             delay: { ...settings.delay, showBreathingExercise: !settings.delay.showBreathingExercise },
+        });
+    };
+
+    const handleSkipToggle = () => {
+        updateSettings({
+            delay: { ...settings.delay, allowSkip: !settings.delay.allowSkip },
         });
     };
 
@@ -58,13 +77,11 @@ export default function SettingsScreen() {
     // PIN handlers
     const handlePinToggle = async () => {
         if (settings.privacy.pinEnabled) {
-            // Disable PIN
             await removePin();
             updateSettings({
                 privacy: { ...settings.privacy, pinEnabled: false },
             });
         } else {
-            // Show PIN setup
             setShowPinSetup(true);
         }
     };
@@ -83,7 +100,7 @@ export default function SettingsScreen() {
         }
     };
 
-    // Price save handler
+    // Save handlers
     const handleSavePrice = () => {
         const price = parseFloat(priceInput);
         if (!isNaN(price) && price > 0) {
@@ -94,11 +111,21 @@ export default function SettingsScreen() {
         setEditingPrice(false);
     };
 
-    // Reset to defaults handler
+    const handleSaveCigs = () => {
+        const cigs = parseInt(cigsInput, 10);
+        if (!isNaN(cigs) && cigs > 0) {
+            updateSettings({
+                financial: { ...settings.financial, cigarettesPerPack: cigs },
+            });
+        }
+        setEditingCigsPerPack(false);
+    };
+
+    // Reset handler
     const handleResetToDefaults = () => {
         Alert.alert(
             'Reset Settings',
-            'This will reset all settings to default values. Your smoking logs will not be deleted. Continue?',
+            'This will reset all settings to default values. Your logs will not be deleted.',
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -108,46 +135,13 @@ export default function SettingsScreen() {
                         await removePin();
                         await updateSettings(defaultUserSettings);
                         setPriceInput(String(defaultUserSettings.financial.pricePerPack));
-                        Alert.alert('Done', 'Settings have been reset to defaults');
+                        setCigsInput(String(defaultUserSettings.financial.cigarettesPerPack));
+                        Alert.alert('Done', 'Settings have been reset');
                     },
                 },
             ]
         );
     };
-
-    const renderSection = (
-        title: string,
-        children: React.ReactNode
-    ) => (
-        <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{title}</Text>
-            <View style={styles.sectionContent}>{children}</View>
-        </View>
-    );
-
-    const renderToggleRow = (
-        icon: string,
-        label: string,
-        description: string,
-        value: boolean,
-        onToggle: () => void
-    ) => (
-        <View style={styles.settingRow}>
-            <View style={styles.settingIcon}>
-                <Ionicons name={icon as any} size={22} color={colors.primary[500]} />
-            </View>
-            <View style={styles.settingContent}>
-                <Text style={styles.settingLabel}>{label}</Text>
-                <Text style={styles.settingDescription}>{description}</Text>
-            </View>
-            <Switch
-                value={value}
-                onValueChange={onToggle}
-                trackColor={{ false: colors.neutral[200], true: colors.primary[400] }}
-                thumbColor={value ? colors.primary[600] : colors.neutral[400]}
-            />
-        </View>
-    );
 
     return (
         <SafeAreaView style={styles.container}>
@@ -158,196 +152,286 @@ export default function SettingsScreen() {
                 {/* Header */}
                 <View style={styles.header}>
                     <Text style={styles.title}>Settings</Text>
+                    <Text style={styles.subtitle}>Customize your experience</Text>
                 </View>
 
-                {/* Delay System */}
-                {renderSection('Delay System', (
-                    <>
-                        {renderToggleRow(
-                            'time-outline',
-                            'Enable Delay Timer',
-                            'Pause before logging to reflect on your urge',
-                            settings.delay.enabled,
-                            handleDelayToggle
-                        )}
-                        {settings.delay.enabled && renderToggleRow(
-                            'fitness-outline',
-                            'Breathing Exercise',
-                            'Show guided breathing during delay',
-                            settings.delay.showBreathingExercise,
-                            handleBreathingToggle
-                        )}
-                    </>
-                ))}
-
-                {/* Smart Reduction */}
-                {renderSection('Smart Reduction', (
-                    <>
-                        {renderToggleRow(
-                            'trending-down-outline',
-                            'Reduction Mode',
-                            'Get personalized tips to gradually reduce',
-                            settings.reduction.enabled,
-                            handleReductionModeToggle
-                        )}
-                    </>
-                ))}
-
-                {/* Financial Settings */}
-                {renderSection('Financial', (
-                    <>
-                        <TouchableOpacity
-                            style={styles.settingRow}
-                            onPress={() => setEditingPrice(true)}
-                        >
-                            <View style={styles.settingIcon}>
-                                <Ionicons name="cash-outline" size={22} color={colors.primary[500]} />
-                            </View>
-                            <View style={styles.settingContent}>
-                                <Text style={styles.settingLabel}>Price per Pack</Text>
-                                <Text style={styles.settingDescription}>
-                                    Used for spending calculations
-                                </Text>
-                            </View>
-                            {editingPrice ? (
-                                <View style={styles.inlineEdit}>
-                                    <TextInput
-                                        style={styles.priceInput}
-                                        value={priceInput}
-                                        onChangeText={setPriceInput}
-                                        keyboardType="decimal-pad"
-                                        autoFocus
-                                    />
-                                    <TouchableOpacity onPress={handleSavePrice}>
-                                        <Ionicons name="checkmark" size={24} color={colors.primary[500]} />
-                                    </TouchableOpacity>
-                                </View>
-                            ) : (
-                                <Text style={styles.settingValue}>
-                                    {settings.financial.currency}{settings.financial.pricePerPack}
-                                </Text>
-                            )}
-                        </TouchableOpacity>
-
-                        {/* Currency Selector */}
-                        <View style={styles.currencySection}>
-                            <View style={styles.currencySectionHeader}>
-                                <View style={styles.settingIcon}>
-                                    <Ionicons name="globe-outline" size={22} color={colors.primary[500]} />
-                                </View>
-                                <View style={styles.settingContent}>
-                                    <Text style={styles.settingLabel}>Currency</Text>
-                                    <Text style={styles.settingDescription}>
-                                        Select your local currency
-                                    </Text>
-                                </View>
-                            </View>
-                            <View style={styles.currencyGrid}>
-                                {[
-                                    { symbol: '$', code: 'USD', name: 'US Dollar' },
-                                    { symbol: '€', code: 'EUR', name: 'Euro' },
-                                    { symbol: '£', code: 'GBP', name: 'Pound' },
-                                    { symbol: '₹', code: 'INR', name: 'Rupee' },
-                                    { symbol: '¥', code: 'JPY', name: 'Yen' },
-                                    { symbol: '₱', code: 'PHP', name: 'Peso' },
-                                ].map((curr) => (
-                                    <TouchableOpacity
-                                        key={curr.symbol}
-                                        onPress={() => updateSettings({
-                                            financial: { ...settings.financial, currency: curr.symbol }
-                                        })}
-                                        style={[
-                                            styles.currencyCard,
-                                            settings.financial.currency === curr.symbol && styles.currencyCardActive
-                                        ]}
-                                    >
-                                        <Text style={[
-                                            styles.currencySymbol,
-                                            settings.financial.currency === curr.symbol && styles.currencySymbolActive
-                                        ]}>
-                                            {curr.symbol}
-                                        </Text>
-                                        <Text style={[
-                                            styles.currencyCode,
-                                            settings.financial.currency === curr.symbol && styles.currencyCodeActive
-                                        ]}>
-                                            {curr.code}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
+                {/* Delay System Card */}
+                <View style={styles.card}>
+                    <View style={styles.cardHeader}>
+                        <View style={[styles.cardIcon, { backgroundColor: colors.primary[50] }]}>
+                            <Ionicons name="time" size={20} color={colors.primary[500]} />
                         </View>
-                    </>
-                ))}
+                        <Text style={styles.cardTitle}>Delay System</Text>
+                    </View>
 
-                {/* Privacy & Security */}
-                {renderSection('Privacy & Security', (
-                    <>
-                        {renderToggleRow(
-                            'lock-closed-outline',
-                            'PIN Protection',
-                            'Require PIN to open the app',
-                            settings.privacy.pinEnabled,
-                            handlePinToggle
-                        )}
-                        {renderToggleRow(
-                            'eye-off-outline',
-                            'Disguise Mode',
-                            'Show neutral app name on home screen',
-                            settings.privacy.disguiseMode,
-                            handleDisguiseModeToggle
-                        )}
-                        {renderToggleRow(
-                            'notifications-off-outline',
-                            'Neutral Notifications',
-                            'Hide smoking-related content in notifications',
-                            settings.privacy.neutralNotifications,
-                            handleNeutralNotificationsToggle
-                        )}
-                    </>
-                ))}
-
-                {/* PIN Setup Modal */}
-                {showPinSetup && (
-                    <View style={styles.pinSetup}>
-                        <Text style={styles.pinSetupTitle}>Set a 4-digit PIN</Text>
-                        <TextInput
-                            style={styles.pinInput}
-                            value={newPin}
-                            onChangeText={(text) => setNewPin(text.replace(/[^0-9]/g, '').slice(0, 4))}
-                            keyboardType="number-pad"
-                            secureTextEntry
-                            maxLength={4}
-                            placeholder="••••"
-                            placeholderTextColor={colors.neutral[400]}
+                    <View style={styles.settingRow}>
+                        <View style={styles.settingInfo}>
+                            <Text style={styles.settingLabel}>Enable Delay Timer</Text>
+                            <Text style={styles.settingDesc}>Pause before logging</Text>
+                        </View>
+                        <Switch
+                            value={settings.delay.enabled}
+                            onValueChange={handleDelayToggle}
+                            trackColor={{ false: colors.neutral[200], true: colors.primary[400] }}
+                            thumbColor={settings.delay.enabled ? colors.primary[600] : colors.neutral[100]}
                         />
-                        <View style={styles.pinButtons}>
-                            <TouchableOpacity
-                                onPress={() => {
-                                    setShowPinSetup(false);
-                                    setNewPin('');
-                                }}
-                                style={styles.pinCancelButton}
-                            >
-                                <Text style={styles.pinCancelText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={handleSetPin}
-                                style={styles.pinConfirmButton}
-                            >
-                                <Text style={styles.pinConfirmText}>Set PIN</Text>
-                            </TouchableOpacity>
+                    </View>
+
+                    {settings.delay.enabled && (
+                        <>
+                            <View style={styles.settingRow}>
+                                <View style={styles.settingInfo}>
+                                    <Text style={styles.settingLabel}>Breathing Exercise</Text>
+                                    <Text style={styles.settingDesc}>Guided breathing during delay</Text>
+                                </View>
+                                <Switch
+                                    value={settings.delay.showBreathingExercise}
+                                    onValueChange={handleBreathingToggle}
+                                    trackColor={{ false: colors.neutral[200], true: colors.primary[400] }}
+                                    thumbColor={settings.delay.showBreathingExercise ? colors.primary[600] : colors.neutral[100]}
+                                />
+                            </View>
+                            <View style={styles.settingRow}>
+                                <View style={styles.settingInfo}>
+                                    <Text style={styles.settingLabel}>Allow Skip</Text>
+                                    <Text style={styles.settingDesc}>Let users skip the delay</Text>
+                                </View>
+                                <Switch
+                                    value={settings.delay.allowSkip}
+                                    onValueChange={handleSkipToggle}
+                                    trackColor={{ false: colors.neutral[200], true: colors.primary[400] }}
+                                    thumbColor={settings.delay.allowSkip ? colors.primary[600] : colors.neutral[100]}
+                                />
+                            </View>
+                        </>
+                    )}
+                </View>
+
+                {/* Smart Reduction Card */}
+                <View style={styles.card}>
+                    <View style={styles.cardHeader}>
+                        <View style={[styles.cardIcon, { backgroundColor: colors.secondary[50] }]}>
+                            <Ionicons name="trending-down" size={20} color={colors.secondary[500]} />
+                        </View>
+                        <Text style={styles.cardTitle}>Smart Reduction</Text>
+                    </View>
+
+                    <View style={styles.settingRow}>
+                        <View style={styles.settingInfo}>
+                            <Text style={styles.settingLabel}>Reduction Mode</Text>
+                            <Text style={styles.settingDesc}>Get tips to gradually reduce</Text>
+                        </View>
+                        <Switch
+                            value={settings.reduction.enabled}
+                            onValueChange={handleReductionModeToggle}
+                            trackColor={{ false: colors.neutral[200], true: colors.secondary[400] }}
+                            thumbColor={settings.reduction.enabled ? colors.secondary[600] : colors.neutral[100]}
+                        />
+                    </View>
+                </View>
+
+                {/* Financial Settings Card */}
+                <View style={styles.card}>
+                    <View style={styles.cardHeader}>
+                        <View style={[styles.cardIcon, { backgroundColor: '#FEF3C7' }]}>
+                            <Ionicons name="cash" size={20} color="#D97706" />
+                        </View>
+                        <Text style={styles.cardTitle}>Financial</Text>
+                    </View>
+
+                    {/* Price per Pack */}
+                    <TouchableOpacity
+                        style={styles.settingRow}
+                        onPress={() => setEditingPrice(true)}
+                    >
+                        <View style={styles.settingInfo}>
+                            <Text style={styles.settingLabel}>Price per Pack</Text>
+                            <Text style={styles.settingDesc}>Cost of a pack</Text>
+                        </View>
+                        {editingPrice ? (
+                            <View style={styles.inlineEdit}>
+                                <TextInput
+                                    style={styles.editInput}
+                                    value={priceInput}
+                                    onChangeText={setPriceInput}
+                                    keyboardType="decimal-pad"
+                                    autoFocus
+                                />
+                                <TouchableOpacity onPress={handleSavePrice} style={styles.saveIcon}>
+                                    <Ionicons name="checkmark" size={20} color={colors.primary[500]} />
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <Text style={styles.settingValue}>
+                                {settings.financial.currency}{settings.financial.pricePerPack}
+                            </Text>
+                        )}
+                    </TouchableOpacity>
+
+                    {/* Cigarettes per Pack */}
+                    <TouchableOpacity
+                        style={styles.settingRow}
+                        onPress={() => setEditingCigsPerPack(true)}
+                    >
+                        <View style={styles.settingInfo}>
+                            <Text style={styles.settingLabel}>Cigarettes per Pack</Text>
+                            <Text style={styles.settingDesc}>Number in one pack</Text>
+                        </View>
+                        {editingCigsPerPack ? (
+                            <View style={styles.inlineEdit}>
+                                <TextInput
+                                    style={styles.editInput}
+                                    value={cigsInput}
+                                    onChangeText={setCigsInput}
+                                    keyboardType="number-pad"
+                                    autoFocus
+                                />
+                                <TouchableOpacity onPress={handleSaveCigs} style={styles.saveIcon}>
+                                    <Ionicons name="checkmark" size={20} color={colors.primary[500]} />
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <Text style={styles.settingValue}>
+                                {settings.financial.cigarettesPerPack}
+                            </Text>
+                        )}
+                    </TouchableOpacity>
+
+                    {/* Currency */}
+                    <View style={styles.currencySection}>
+                        <Text style={styles.currencyLabel}>Select Currency</Text>
+                        <View style={styles.currencyGrid}>
+                            {CURRENCIES.map((curr) => (
+                                <TouchableOpacity
+                                    key={curr.symbol}
+                                    onPress={() => updateSettings({
+                                        financial: { ...settings.financial, currency: curr.symbol }
+                                    })}
+                                    style={[
+                                        styles.currencyCard,
+                                        settings.financial.currency === curr.symbol && styles.currencyCardActive
+                                    ]}
+                                >
+                                    <Text style={[
+                                        styles.currencySymbol,
+                                        settings.financial.currency === curr.symbol && styles.currencySymbolActive
+                                    ]}>
+                                        {curr.symbol}
+                                    </Text>
+                                    <Text style={[
+                                        styles.currencyCode,
+                                        settings.financial.currency === curr.symbol && styles.currencyCodeActive
+                                    ]}>
+                                        {curr.code}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
                         </View>
                     </View>
-                )}
+                </View>
+
+                {/* Privacy & Security Card */}
+                <View style={styles.card}>
+                    <View style={styles.cardHeader}>
+                        <View style={[styles.cardIcon, { backgroundColor: '#FEE2E2' }]}>
+                            <Ionicons name="shield" size={20} color="#DC2626" />
+                        </View>
+                        <Text style={styles.cardTitle}>Privacy & Security</Text>
+                    </View>
+
+                    <View style={styles.settingRow}>
+                        <View style={styles.settingInfo}>
+                            <Text style={styles.settingLabel}>PIN Protection</Text>
+                            <Text style={styles.settingDesc}>Require PIN to open app</Text>
+                        </View>
+                        <Switch
+                            value={settings.privacy.pinEnabled}
+                            onValueChange={handlePinToggle}
+                            trackColor={{ false: colors.neutral[200], true: '#DC2626' }}
+                            thumbColor={settings.privacy.pinEnabled ? '#DC2626' : colors.neutral[100]}
+                        />
+                    </View>
+
+                    {showPinSetup && (
+                        <View style={styles.pinSetup}>
+                            <Text style={styles.pinLabel}>Enter 4-digit PIN:</Text>
+                            <TextInput
+                                style={styles.pinInput}
+                                value={newPin}
+                                onChangeText={(text) => setNewPin(text.replace(/[^0-9]/g, '').slice(0, 4))}
+                                keyboardType="number-pad"
+                                secureTextEntry
+                                maxLength={4}
+                                placeholder="••••"
+                                placeholderTextColor={colors.neutral[400]}
+                            />
+                            <View style={styles.pinButtons}>
+                                <TouchableOpacity
+                                    onPress={() => { setShowPinSetup(false); setNewPin(''); }}
+                                    style={styles.pinCancelBtn}
+                                >
+                                    <Text style={styles.pinCancelText}>Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={handleSetPin}
+                                    style={styles.pinConfirmBtn}
+                                >
+                                    <Text style={styles.pinConfirmText}>Set PIN</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    )}
+
+                    <View style={styles.settingRow}>
+                        <View style={styles.settingInfo}>
+                            <Text style={styles.settingLabel}>Disguise Mode</Text>
+                            <Text style={styles.settingDesc}>Hide app identity</Text>
+                        </View>
+                        <Switch
+                            value={settings.privacy.disguiseMode}
+                            onValueChange={handleDisguiseModeToggle}
+                            trackColor={{ false: colors.neutral[200], true: '#DC2626' }}
+                            thumbColor={settings.privacy.disguiseMode ? '#DC2626' : colors.neutral[100]}
+                        />
+                    </View>
+
+                    <View style={styles.settingRow}>
+                        <View style={styles.settingInfo}>
+                            <Text style={styles.settingLabel}>Neutral Notifications</Text>
+                            <Text style={styles.settingDesc}>Hide content in notifications</Text>
+                        </View>
+                        <Switch
+                            value={settings.privacy.neutralNotifications}
+                            onValueChange={handleNeutralNotificationsToggle}
+                            trackColor={{ false: colors.neutral[200], true: '#DC2626' }}
+                            thumbColor={settings.privacy.neutralNotifications ? '#DC2626' : colors.neutral[100]}
+                        />
+                    </View>
+                </View>
 
                 {/* App Info */}
                 <View style={styles.appInfo}>
+                    <Image
+                        source={require('../../assets/icon.png')}
+                        style={styles.appIcon}
+                    />
                     <Text style={styles.appName}>SmokeSense</Text>
                     <Text style={styles.appVersion}>Version 1.0.0</Text>
-                    <Text style={styles.appTagline}>
-                        Awareness • Control • Reduction
-                    </Text>
+                    <Text style={styles.appTagline}>Awareness • Control • Reduction</Text>
+
+                    {/* Developer Credits */}
+                    <View style={styles.creditsSection}>
+                        <Text style={styles.creditsLabel}>Developed by</Text>
+                        <Text style={styles.creditsDeveloper}>Tarun Gautam</Text>
+                        <TouchableOpacity
+                            onPress={() => Linking.openURL('https://github.com/tarunerror/')}
+                            style={styles.githubLink}
+                        >
+                            <Ionicons name="logo-github" size={16} color={colors.neutral[600]} />
+                            <Text style={styles.githubText}>@tarunerror</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.creditsYear}>© {new Date().getFullYear()}</Text>
+                    </View>
                 </View>
 
                 {/* Reset Button */}
@@ -355,7 +439,7 @@ export default function SettingsScreen() {
                     onPress={handleResetToDefaults}
                     style={styles.resetButton}
                 >
-                    <Ionicons name="refresh-outline" size={20} color={colors.error} />
+                    <Ionicons name="refresh" size={18} color={colors.error} />
                     <Text style={styles.resetButtonText}>Reset to Defaults</Text>
                 </TouchableOpacity>
             </ScrollView>
@@ -379,147 +463,90 @@ const styles = StyleSheet.create({
         fontWeight: typography.weights.bold,
         color: colors.neutral[800],
     },
-    section: {
-        marginBottom: spacing.lg,
-    },
-    sectionTitle: {
-        fontSize: typography.sizes.sm,
-        fontWeight: typography.weights.semibold,
+    subtitle: {
+        fontSize: typography.sizes.md,
         color: colors.neutral[500],
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-        marginBottom: spacing.sm,
+        marginTop: spacing.xs,
     },
-    sectionContent: {
+    card: {
         backgroundColor: colors.background.primary,
-        borderRadius: borderRadius.lg,
-        overflow: 'hidden',
+        borderRadius: borderRadius.xl,
+        padding: spacing.lg,
+        marginBottom: spacing.md,
+    },
+    cardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.md,
+        paddingBottom: spacing.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.neutral[100],
+    },
+    cardIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: spacing.sm,
+    },
+    cardTitle: {
+        fontSize: typography.sizes.md,
+        fontWeight: typography.weights.semibold,
+        color: colors.neutral[800],
     },
     settingRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: spacing.md,
+        justifyContent: 'space-between',
+        paddingVertical: spacing.sm,
         borderBottomWidth: 1,
-        borderBottomColor: colors.neutral[100],
+        borderBottomColor: colors.neutral[50],
     },
-    settingIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: borderRadius.md,
-        backgroundColor: colors.primary[50],
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: spacing.md,
-    },
-    settingContent: {
+    settingInfo: {
         flex: 1,
     },
     settingLabel: {
-        fontSize: typography.sizes.md,
+        fontSize: typography.sizes.sm,
         fontWeight: typography.weights.medium,
-        color: colors.neutral[800],
+        color: colors.neutral[700],
     },
-    settingDescription: {
+    settingDesc: {
         fontSize: typography.sizes.xs,
-        color: colors.neutral[500],
+        color: colors.neutral[400],
         marginTop: 2,
     },
     settingValue: {
         fontSize: typography.sizes.md,
         fontWeight: typography.weights.semibold,
-        color: colors.primary[500],
+        color: colors.primary[600],
     },
     inlineEdit: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: spacing.sm,
+        gap: spacing.xs,
     },
-    priceInput: {
+    editInput: {
         fontSize: typography.sizes.md,
         fontWeight: typography.weights.semibold,
         color: colors.neutral[800],
-        borderBottomWidth: 1,
+        borderBottomWidth: 2,
         borderBottomColor: colors.primary[500],
-        paddingVertical: spacing.xs,
+        paddingVertical: 2,
         minWidth: 60,
         textAlign: 'right',
     },
-    pinSetup: {
-        backgroundColor: colors.background.primary,
-        borderRadius: borderRadius.lg,
-        padding: spacing.xl,
-        marginBottom: spacing.lg,
-        alignItems: 'center',
-    },
-    pinSetupTitle: {
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.semibold,
-        color: colors.neutral[800],
-        marginBottom: spacing.lg,
-    },
-    pinInput: {
-        fontSize: 32,
-        fontWeight: typography.weights.bold,
-        color: colors.neutral[800],
-        textAlign: 'center',
-        letterSpacing: 12,
-        borderBottomWidth: 2,
-        borderBottomColor: colors.primary[500],
-        paddingVertical: spacing.md,
-        paddingHorizontal: spacing.xl,
-        marginBottom: spacing.lg,
-    },
-    pinButtons: {
-        flexDirection: 'row',
-        gap: spacing.md,
-    },
-    pinCancelButton: {
-        paddingVertical: spacing.sm,
-        paddingHorizontal: spacing.xl,
-    },
-    pinCancelText: {
-        fontSize: typography.sizes.md,
-        color: colors.neutral[500],
-    },
-    pinConfirmButton: {
-        backgroundColor: colors.primary[500],
-        paddingVertical: spacing.sm,
-        paddingHorizontal: spacing.xl,
-        borderRadius: borderRadius.md,
-    },
-    pinConfirmText: {
-        fontSize: typography.sizes.md,
-        fontWeight: typography.weights.semibold,
-        color: colors.neutral[0],
-    },
-    appInfo: {
-        alignItems: 'center',
-        paddingVertical: spacing.xxl,
-    },
-    appName: {
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.bold,
-        color: colors.primary[500],
-    },
-    appVersion: {
-        fontSize: typography.sizes.sm,
-        color: colors.neutral[400],
-        marginTop: spacing.xs,
-    },
-    appTagline: {
-        fontSize: typography.sizes.sm,
-        color: colors.neutral[500],
-        marginTop: spacing.sm,
+    saveIcon: {
+        padding: spacing.xs,
     },
     currencySection: {
-        padding: spacing.md,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.neutral[100],
+        marginTop: spacing.md,
     },
-    currencySectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: spacing.md,
+    currencyLabel: {
+        fontSize: typography.sizes.sm,
+        fontWeight: typography.weights.medium,
+        color: colors.neutral[700],
+        marginBottom: spacing.sm,
     },
     currencyGrid: {
         flexDirection: 'row',
@@ -557,22 +584,133 @@ const styles = StyleSheet.create({
     currencyCodeActive: {
         color: colors.primary[500],
     },
+    pinSetup: {
+        backgroundColor: colors.neutral[50],
+        borderRadius: borderRadius.md,
+        padding: spacing.md,
+        marginVertical: spacing.sm,
+    },
+    pinLabel: {
+        fontSize: typography.sizes.sm,
+        color: colors.neutral[600],
+        marginBottom: spacing.sm,
+    },
+    pinInput: {
+        fontSize: typography.sizes.xl,
+        fontWeight: typography.weights.bold,
+        textAlign: 'center',
+        letterSpacing: 8,
+        backgroundColor: colors.background.primary,
+        borderRadius: borderRadius.md,
+        paddingVertical: spacing.sm,
+    },
+    pinButtons: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: spacing.sm,
+        marginTop: spacing.md,
+    },
+    pinCancelBtn: {
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+    },
+    pinCancelText: {
+        color: colors.neutral[500],
+    },
+    pinConfirmBtn: {
+        backgroundColor: colors.primary[500],
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.lg,
+        borderRadius: borderRadius.md,
+    },
+    pinConfirmText: {
+        color: colors.neutral[0],
+        fontWeight: typography.weights.semibold,
+    },
+    appInfo: {
+        alignItems: 'center',
+        paddingVertical: spacing.xl,
+    },
+    appLogo: {
+        width: 64,
+        height: 64,
+        borderRadius: 16,
+        backgroundColor: colors.primary[50],
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: spacing.md,
+    },
+    appName: {
+        fontSize: typography.sizes.lg,
+        fontWeight: typography.weights.bold,
+        color: colors.neutral[800],
+    },
+    appVersion: {
+        fontSize: typography.sizes.sm,
+        color: colors.neutral[400],
+        marginTop: 2,
+    },
+    appTagline: {
+        fontSize: typography.sizes.xs,
+        color: colors.primary[500],
+        marginTop: spacing.xs,
+    },
     resetButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: spacing.sm,
         paddingVertical: spacing.md,
-        marginBottom: spacing.xxl,
-        marginTop: spacing.md,
-        backgroundColor: colors.background.primary,
-        borderRadius: borderRadius.lg,
         borderWidth: 1,
         borderColor: colors.error,
+        borderRadius: borderRadius.lg,
+        marginBottom: spacing.xxl,
     },
     resetButtonText: {
-        fontSize: typography.sizes.md,
-        fontWeight: typography.weights.medium,
+        fontSize: typography.sizes.sm,
         color: colors.error,
+        fontWeight: typography.weights.medium,
+    },
+    appIcon: {
+        width: 80,
+        height: 80,
+        borderRadius: 20,
+        marginBottom: spacing.md,
+    },
+    creditsSection: {
+        marginTop: spacing.lg,
+        alignItems: 'center',
+        paddingTop: spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: colors.neutral[100],
+    },
+    creditsLabel: {
+        fontSize: typography.sizes.xs,
+        color: colors.neutral[400],
+    },
+    creditsDeveloper: {
+        fontSize: typography.sizes.md,
+        fontWeight: typography.weights.semibold,
+        color: colors.neutral[800],
+        marginTop: spacing.xs,
+    },
+    creditsYear: {
+        fontSize: typography.sizes.xs,
+        color: colors.neutral[400],
+        marginTop: spacing.sm,
+    },
+    githubLink: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+        marginTop: spacing.xs,
+        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.sm,
+        backgroundColor: colors.neutral[100],
+        borderRadius: borderRadius.full,
+    },
+    githubText: {
+        fontSize: typography.sizes.sm,
+        color: colors.neutral[600],
     },
 });

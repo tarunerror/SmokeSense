@@ -1,8 +1,11 @@
 // Budget Meter Component - Using React Native Animated
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 import { colors, spacing, typography } from '../theme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmallDevice = SCREEN_WIDTH < 375;
 
 interface BudgetMeterProps {
     used: number;
@@ -14,11 +17,15 @@ interface BudgetMeterProps {
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
+// Responsive default size
+const getDefaultSize = () => isSmallDevice ? 150 : 200;
+const getDefaultStroke = () => isSmallDevice ? 12 : 16;
+
 export const BudgetMeter: React.FC<BudgetMeterProps> = ({
     used,
     limit,
-    size = 200,
-    strokeWidth = 16,
+    size = getDefaultSize(),
+    strokeWidth = getDefaultStroke(),
     showLabel = true,
 }) => {
     const radius = (size - strokeWidth) / 2;

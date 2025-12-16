@@ -6,10 +6,14 @@ import {
     StyleSheet,
     ViewStyle,
     Animated,
+    Dimensions,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, shadows } from '../theme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmallDevice = SCREEN_WIDTH < 375;
 
 interface LogButtonProps {
     onPress: () => void;
@@ -47,10 +51,23 @@ export const LogButton: React.FC<LogButtonProps> = ({
         onPress();
     };
 
+    // Responsive sizes based on screen width
     const sizeStyles = {
-        small: { width: 80, height: 80, iconSize: 28 },
-        medium: { width: 120, height: 120, iconSize: 40 },
-        large: { width: 160, height: 160, iconSize: 56 },
+        small: {
+            width: isSmallDevice ? 60 : 80,
+            height: isSmallDevice ? 60 : 80,
+            iconSize: isSmallDevice ? 22 : 28
+        },
+        medium: {
+            width: isSmallDevice ? 90 : 120,
+            height: isSmallDevice ? 90 : 120,
+            iconSize: isSmallDevice ? 32 : 40
+        },
+        large: {
+            width: isSmallDevice ? 120 : 160,
+            height: isSmallDevice ? 120 : 160,
+            iconSize: isSmallDevice ? 44 : 56
+        },
     };
 
     const currentSize = sizeStyles[size];
